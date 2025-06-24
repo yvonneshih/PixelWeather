@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Visualizer</title>
+    <style>
+        body {
+            margin: 0;
+            background: #222;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .lang-select, .city-btn {
+            background: #444;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 14px;
+            font-size: 1em;
+            margin: 12px 6px 12px 0;
+            cursor: pointer;
+        }
+        .city-btn.selected {
+            background: #ffe066;
+            color: #222;
+            font-weight: bold;
+        }
+        #weatherCanvas {
+            background: #111;
+            border-radius: 10px;
+            box-shadow: 0 4px 24px #0005;
+            margin-bottom: 18px;
+            display: block;
+        }
+        .info {
+            margin: 10px 0 0 0;
+            color: #ffe066;
+            font-size: 1.1em;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div style="margin-top:24px;">
+        <select class="lang-select" id="langSelect">
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+            <option value="ko">한국어</option>
+            <option value="no">Norsk</option>
+        </select>
+    </div>
+    <h1 id="mainTitle">Weather Visualizer</h1>
+    <div id="cityBar" style="margin-bottom:18px;"></div>
+    <canvas id="weatherCanvas" width="320" height="320"></canvas>
+    <div class="info" id="weatherInfo"></div>
+    <script>
+    const LANGS = {
+        en: {
+            title: "Weather Visualizer",
+            selectCity: "Select City:",
+            weather: {
+                Clouds: "Cloudy",
+                Rain: "Raining",
+                Drizzle: "Raining",
+                Thunderstorm: "Raining",
+                Clear: "Sunshine",
+                Snow: "Snow",
+                Mist: "Cloudy",
+                Smoke: "Cloudy",
+                Haze: "Cloudy",
+                Dust: "Cloudy",
+                Fog: "Cloudy",
+                Sand: "Cloudy",
+                Ash: "Cloudy",
+                Squall: "Cloudy",
+                Tornado: "Cloudy"
+            },
+            citys: [
+                {name: "Shanghai", label: "Shanghai"},
+                {name: "Beijing", label: "Beijing"},
+                {name: "Seoul", label: "Seoul"},
+                {name: "Bangkok", label: "Bangkok"},
+                {name: "London", label: "London"},
+                {name: "Liverpool", label: "Liverpool"},
+                {name: "Sydney", label: "Sydney"},
+                {name: "Iceland", label: "Iceland"}
+            ],
+            loading: "Loading weather...",
+            error: "Failed to get weather."
+        },
+        zh: {
+            title: "天气可视化",
+            selectCity: "选择城市：",
+            weather: {
+                Clouds: "多云",
+                Rain: "下雨",
+                Drizzle: "下雨",
+                Thunderstorm: "下雨",
+                Clear: "晴天",
+                Snow: "下雪",
+                Mist: "多云",
+                Smoke: "多云",
+                Haze: "多云",
+                Dust: "多云",
+                Fog: "多云",
+                Sand: "多云",
+                Ash: "多云",
+                Squall: "多云",
+                Tornado: "多云"
+            },
+            citys: [
+                {name: "Shanghai", label: "上海"},
+                {name: "Beijing", label: "北京"},
+                {name: "Seoul", label: "首尔"},
+                {name: "Bangkok", label: "曼谷"},
+                {name: "London", label: "伦敦"},
+                {name: "Liverpool", label: "利物浦"},
+                {name: "Sydney", label: "悉尼"},
+                {name: "Iceland", label: "冰岛"}
+            ],
+            loading: "正在获取天气...",
+            error: "获取天气失败。"
+        },
+        ko: {
+            title: "날씨 시각화",
+            selectCity: "도시 선택:",
+            weather: {
+                Clouds: "흐림",
+                Rain: "비",
+                Drizzle: "비",
+                Thunderstorm: "비",
+                Clear: "맑음",
+                Snow: "눈",
+                Mist: "흐림",
+                Smoke: "흐림",
+                Haze: "흐림",
+                Dust: "흐림",
+                Fog: "흐림",
+                Sand: "흐림",
+                Ash: "흐림",
+                Squall: "흐림",
+                Tornado: "흐림"
+            },
+            citys: [
+                {name: "Shanghai", label: "상하이"},
+                {name: "Beijing", label: "베이징"},
+                {name: "Seoul", label: "서울"},
+                {name: "Bangkok", label: "방콕"},
+                {name: "London", label: "런던"},
+                {name: "Liverpool", label: "리버풀"},
+                {name: "Sydney", label: "시드니"},
+                {name: "Iceland", label: "아이슬란드"}
+            ],
+            loading: "날씨를 불러오는 중...",
+            error: "날씨를 가져오지 못했습니다."
+        },
+        no: {
+            title: "Værvisualisering",
+            selectCity: "Velg by:",
+            weather: {
+                Clouds: "Skyet",
+                Rain: "Regn",
+                Drizzle: "Regn",
+                Thunderstorm: "Regn",
+                Clear: "Solskinn",
+                Snow: "Snø",
+                Mist: "Skyet",
+                Smoke: "Skyet",
+                Haze: "Skyet",
+                Dust: "Skyet",
+                Fog: "Skyet",
+                Sand: "Skyet",
+                Ash: "Skyet",
+                Squall: "Skyet",
+                Tornado: "Skyet"
+            },
+            citys: [
+                {name: "Shanghai", label: "Shanghai"},
+                {name: "Beijing", label: "Beijing"},
+                {name: "Seoul", label: "Seoul"},
+                {name: "Bangkok", label: "Bangkok"},
+                {name: "London", label: "London"},
+                {name: "Liverpool", label: "Liverpool"},
+                {name: "Sydney", label: "Sydney"},
+                {name: "Iceland", label: "Island"}
+            ],
+            loading: "Laster inn vær...",
+            error: "Kunne ikke hente vær."
+        }
+    };
+    let currentLang = 'en';
+    let currentCity = 'Shanghai';
+    const langSelect = document.getElementById('langSelect');
+    const mainTitle = document.getElementById('mainTitle');
+    const cityBar = document.getElementById('cityBar');
+    const weatherInfo = document.getElementById('weatherInfo');
+    const canvas = document.getElementById('weatherCanvas');
+    const ctx = canvas.getContext('2d');
+    const gridSize = 8;
+    function setLangUI(lang) {
+        const L = LANGS[lang];
+        mainTitle.textContent = L.title;
+        cityBar.innerHTML = `<span style='margin-right:10px;'>${L.selectCity}</span>`;
+        let citys = L.citys;
+        let html = '<div style="display:flex;gap:6px;margin-bottom:6px;">';
+        for(let i=0;i<3;i++){
+            html += `<button class='city-btn${citys[i].name===currentCity?' selected':''}' onclick='window.selectCity("${citys[i].name}")'>${citys[i].label}</button>`;
+        }
+        html += '</div><div style="display:flex;gap:6px;margin-bottom:6px;">';
+        for(let i=3;i<6;i++){
+            html += `<button class='city-btn${citys[i].name===currentCity?' selected':''}' onclick='window.selectCity("${citys[i].name}")'>${citys[i].label}</button>`;
+        }
+        html += '</div><div style="display:flex;gap:6px;margin-bottom:6px;">';
+        html += `<button class='city-btn${citys[6].name===currentCity?' selected':''}' onclick='window.selectCity("${citys[6].name}")'>${citys[6].label}</button>`;
+        html += `<button class='city-btn${citys[7].name===currentCity?' selected':''}' onclick='window.selectCity("${citys[7].name}")'>${citys[7].label}</button>`;
+        html += '</div>';
+        cityBar.innerHTML = `<span style='margin-right:10px;'>${L.selectCity}</span>` + html;
+        window.selectCity = function(name) {
+            currentCity = name;
+            setLangUI(currentLang);
+            fetchWeatherAndDraw();
+        };
+        fetchWeatherAndDraw();
+    }
+    langSelect.addEventListener('change', e => {
+        currentLang = e.target.value;
+        setLangUI(currentLang);
+    });
+    function fetchWeatherAndDraw() {
+        const L = LANGS[currentLang];
+        weatherInfo.textContent = L.loading;
+        fetch(`https://api.openweathermap.org/data/2.5/weather?q=${currentCity}&appid=ad5d5f438565dc4679e57cbb8cb40484&units=metric`)
+        .then(r=>r.json())
+        .then(data => {
+            let main = data.weather && data.weather[0] && data.weather[0].main;
+            let desc = data.weather && data.weather[0] && data.weather[0].description;
+            let temp = data.main && data.main.temp;
+            let weatherType = L.weather[main] || main;
+            weatherInfo.textContent = `${L.weather[main]||main} (${desc||''})  ${temp!==undefined?temp+'°C':''}`;
+            currentWeatherMain = main;
+            currentTemp = temp;
+            startWeatherAnimation(main);
+        })
+        .catch(e => {
+            weatherInfo.textContent = L.error;
+            currentWeatherMain = 'Error';
+            currentTemp = 20;
+            startWeatherAnimation('Error');
+        });
+    }
+    function drawWeather(main) {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        let color = '#888';
+        if(main==='Clouds'||main==='Mist'||main==='Smoke'||main==='Haze'||main==='Dust'||main==='Fog'||main==='Sand'||main==='Ash'||main==='Squall'||main==='Tornado'){
+            color = '#aaa';
+            for(let x=0;x<gridSize;x++) for(let y=0;y<gridSize;y++) fillCell(x,y,color);
+        }else if(main==='Rain'||main==='Drizzle'||main==='Thunderstorm'){
+            color = '#7ecbff';
+            for(let x=0;x<gridSize;x++) for(let y=0;y<gridSize;y++) fillCell(x,y,color);
+        }else if(main==='Clear'){
+            // 渐变橙-白
+            let grad = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+            grad.addColorStop(0,'#ffb347');
+            grad.addColorStop(1,'#fffbe6');
+            for(let x=0;x<gridSize;x++) for(let y=0;y<gridSize;y++) fillCell(x,y,grad);
+        }else if(main==='Snow'){
+            color = '#fff';
+            for(let x=0;x<gridSize;x++) for(let y=0;y<gridSize;y++) fillCell(x,y,color);
+        }else{
+            color = '#444';
+            for(let x=0;x<gridSize;x++) for(let y=0;y<gridSize;y++) fillCell(x,y,color);
+        }
+    }
+    function fillCell(x,y,color){
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x*40+4, y*40+4, 32, 32);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+    }
+    setLangUI('en');
+
+let currentWeatherMain = 'Clear';
+let animationFrameId = null;
+let animState = {};
+let currentTemp = 20;
+function fetchWeatherAndDraw() {
+    const L = LANGS[currentLang];
+    weatherInfo.textContent = L.loading;
+    fetch(`https://api.openweathermap.org/data/2.5/weather?q=${currentCity}&appid=ad5d5f438565dc4679e57cbb8cb40484&units=metric`)
+    .then(r=>r.json())
+    .then(data => {
+        let main = data.weather && data.weather[0] && data.weather[0].main;
+        let desc = data.weather && data.weather[0] && data.weather[0].description;
+        let temp = data.main && data.main.temp;
+        let weatherType = L.weather[main] || main;
+        weatherInfo.textContent = `${L.weather[main]||main} (${desc||''})  ${temp!==undefined?temp+'°C':''}`;
+        currentWeatherMain = main;
+        currentTemp = temp;
+        startWeatherAnimation(main);
+    })
+    .catch(e => {
+        weatherInfo.textContent = L.error;
+        currentWeatherMain = 'Error';
+        currentTemp = 20;
+        startWeatherAnimation('Error');
+    });
+}
+function startWeatherAnimation(main) {
+    if(animationFrameId) cancelAnimationFrame(animationFrameId);
+    // 多云动画：1~2朵云，且不重叠
+    if(main==='Clouds'||main==='Mist'||main==='Smoke'||main==='Haze'||main==='Dust'||main==='Fog'||main==='Sand'||main==='Ash'||main==='Squall'||main==='Tornado'){
+        let cloudCount = 1 + Math.floor(Math.random()*2); // 1~2朵
+        let clouds = [];
+        let tryCount = 0;
+        while(clouds.length < cloudCount && tryCount < 20) {
+            let x = Math.random()*5-1; // -1~4
+            let y = Math.random()*3+1; // 1~4
+            // 检查不重叠
+            let overlap = clouds.some(c => Math.abs(c.x-x)<4 && Math.abs(c.y-y)<2);
+            if(!overlap) clouds.push({x, y, speed: 0.01+Math.random()*0.015});
+            tryCount++;
+        }
+        animState = {clouds, t: 0};
+    }else if(main==='Rain'||main==='Drizzle'||main==='Thunderstorm'){
+        animState = {drops: Array(8).fill(0).map(()=>({x:Math.floor(Math.random()*8), y:Math.random()*8}))};
+    }else if(main==='Clear'){
+        animState = {angle: 0};
+    }else if(main==='Snow'){
+        animState = {
+            flakes: Array(10).fill(0).map(()=>({x:Math.random()*8, y:Math.random()*8, speed:0.04+Math.random()*0.04})),
+            snow: Array(8).fill(0),
+            melting: false,
+            meltT: 0
+        };
+    }else{
+        animState = {};
+    }
+    animateWeather();
+}
+function animateWeather() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    let main = currentWeatherMain;
+    if(main==='Clouds'||main==='Mist'||main==='Smoke'||main==='Haze'||main==='Dust'||main==='Fog'||main==='Sand'||main==='Ash'||main==='Squall'||main==='Tornado'){
+        let skyColor = '#7ecbff';
+        if(currentTemp>30) skyColor = '#ffb347';
+        else if(currentTemp>25) skyColor = '#ffe066';
+        for(let x=0;x<8;x++) for(let y=0;y<8;y++) fillCell(x,y,skyColor);
+        animState.clouds.forEach(cloud=>{
+            drawBlockCloud(cloud.x, cloud.y);
+            cloud.x += cloud.speed;
+            if(cloud.x > 6) cloud.x = -4; // 循环
+        });
+    }
+    // 2. 雨天动画
+    else if(main==='Rain'||main==='Drizzle'||main==='Thunderstorm'){
+        for(let x=0;x<8;x++) for(let y=0;y<8;y++) fillCell(x,y,'#7ecbff');
+        animState.drops.forEach(drop=>{
+            fillCell(Math.floor(drop.x), Math.floor(drop.y), '#fff');
+            drop.y += 0.25+Math.random()*0.1;
+            if(drop.y>=8){ drop.y=0; drop.x=Math.floor(Math.random()*8); }
+        });
+    }
+    // 3. 晴天动画
+    else if(main==='Clear'){
+        // 渐变背景
+        let grad = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+        grad.addColorStop(0,'#ffb347');
+        grad.addColorStop(1,'#fffbe6');
+        for(let x=0;x<8;x++) for(let y=0;y<8;y++) fillCell(x,y,grad);
+        // 太阳颜色随温度变化
+        let minT = 10, maxT = 35;
+        let t = Math.max(0, Math.min(1, (currentTemp-minT)/(maxT-minT)));
+        let sunColor = lerpColor('#fff7c0', '#ffb347', t);
+        // 太阳本体
+        let cx=4,cy=4;
+        for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++){
+            let x=cx+dx, y=cy+dy;
+            if(x>=0&&x<8&&y>=0&&y<8) fillCell(x,y,sunColor);
+        }
+        // 太阳光芒旋转
+        let r=2.2;
+        let angle=animState.angle;
+        for(let i=0;i<8;i++){
+            let a=angle+i*Math.PI/4;
+            let x=Math.round(cx+r*Math.cos(a));
+            let y=Math.round(cy+r*Math.sin(a));
+            if(x>=0&&x<8&&y>=0&&y<8) fillCell(x,y,'#fffbe6');
+        }
+        animState.angle += 0.04;
+    }
+    // 4. 雪天动画
+    else if(main==='Snow'){
+        // 背景
+        for(let x=0;x<8;x++) for(let y=0;y<8;y++) fillCell(x,y,'#fff');
+        // 积雪
+        for(let x=0;x<8;x++){
+            let h = animState.snow[x];
+            for(let y=7;y>=8-h;y--){
+                if(y>=0) fillCell(x,y,'#bcdfff');
+            }
+        }
+        // 雪花下落
+        if(!animState.melting){
+            animState.flakes.forEach(flake=>{
+                let fy = Math.floor(flake.y);
+                if(fy>=0 && fy<8 && animState.snow[Math.floor(flake.x)]<8){
+                    fillCell(Math.floor(flake.x), fy, '#bcdfff');
+                }
+                flake.y += flake.speed;
+                if(flake.y>=8-animState.snow[Math.floor(flake.x)]){
+                    // 落地，积雪高度+1
+                    if(animState.snow[Math.floor(flake.x)]<8){
+                        animState.snow[Math.floor(flake.x)]++;
+                    }
+                    flake.y = 0; flake.x = Math.random()*8; flake.speed=0.04+Math.random()*0.04;
+                }
+            });
+            // 判断是否堆满
+            if(animState.snow.every(h=>h>=8)){
+                animState.melting = true;
+                animState.meltT = 0;
+            }
+        }else{
+            // 融化动画
+            animState.meltT += 0.02;
+            let meltRatio = Math.min(1, animState.meltT);
+            for(let x=0;x<8;x++){
+                let h = Math.round(8*(1-meltRatio));
+                animState.snow[x] = h;
+                for(let y=7;y>=8-h;y--){
+                    if(y>=0) fillCell(x,y,'#bcdfff');
+                }
+            }
+            if(meltRatio>=1){
+                // 重新开始下雪
+                animState.snow = Array(8).fill(0);
+                animState.melting = false;
+            }
+        }
+    }
+    // 其它天气
+    else{
+        for(let x=0;x<8;x++) for(let y=0;y<8;y++) fillCell(x,y,'#444');
+    }
+    animationFrameId = requestAnimationFrame(animateWeather);
+}
+// 新的云朵绘制函数：4行，3-5-5-3格
+function drawBlockCloud(cx, cy){
+    // 云的形状相对于(cx,cy)为左上角
+    // 第一行3格居中
+    let shape = [
+        [1,2,3],           // 第一行3格，居中
+        [0,1,2,3,4],       // 第二行5格
+        [0,1,2,3,4],       // 第三行5格
+        [1,2,3]            // 第四行3格，居中
+    ];
+    for(let row=0;row<4;row++){
+        for(let i=0;i<shape[row].length;i++){
+            let x = Math.round(cx+shape[row][i]);
+            let y = Math.round(cy+row);
+            if(x>=0&&x<8&&y>=0&&y<8) fillCell(x,y,'#fff');
+        }
+    }
+}
+// 颜色插值
+function lerpColor(c1, c2, t){
+    function hex2rgb(hex){
+        hex=hex.replace('#','');
+        return [parseInt(hex.substr(0,2),16),parseInt(hex.substr(2,2),16),parseInt(hex.substr(4,2),16)];
+    }
+    function rgb2hex(rgb){
+        return '#'+rgb.map(x=>x.toString(16).padStart(2,'0')).join('');
+    }
+    let a=hex2rgb(c1),b=hex2rgb(c2);
+    let c=[
+        Math.round(a[0]+(b[0]-a[0])*t),
+        Math.round(a[1]+(b[1]-a[1])*t),
+        Math.round(a[2]+(b[2]-a[2])*t)
+    ];
+    return rgb2hex(c);
+}
+    </script>
+</body>
+</html> 
