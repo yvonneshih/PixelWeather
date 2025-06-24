@@ -332,7 +332,62 @@ function startWeatherAnimation(main) {
     }else if(main==='Rain'||main==='Drizzle'||main==='Thunderstorm'){
         animState = {drops: Array(8).fill(0).map(()=>({x:Math.floor(Math.random()*8), y:Math.random()*8}))};
     }else if(main==='Clear'){
-        animState = {angle: 0};
+        // 根据温度选择渐变色
+        let gradColorStart, gradColorEnd;
+        if(currentTemp > 30){
+            gradColorStart = '#c0392b'; // deep red
+            gradColorEnd = '#ff9800';   // orange
+        }else if(currentTemp < 20){
+            gradColorStart = '#7ecbff'; // blue
+            gradColorEnd = '#fff';      // white
+        }else{
+            gradColorStart = '#ffe066'; // warm shallow yellow
+            gradColorEnd = '#fff';      // white
+        }
+        // 先生成8x8格子的渐变色和闪烁
+        let cellColors = Array(8).fill(0).map(()=>Array(8).fill('#000'));
+        for(let x=0;x<8;x++){
+            for(let y=0;y<8;y++){
+                let t = (x+y/8)/7;
+                let baseColor = lerpColor(gradColorStart, gradColorEnd, t);
+                if(!animState.shimmerTarget) animState.shimmerTarget = Array(8).fill(0).map(()=>Array(8).fill(1));
+                if(!animState.shimmer) animState.shimmer = Array(8).fill(0).map(()=>Array(8).fill(1));
+                if(Math.random()<0.04){
+                    animState.shimmerTarget[x][y] = 0.88 + Math.random()*0.24;
+                }
+                animState.shimmer[x][y] += (animState.shimmerTarget[x][y] - animState.shimmer[x][y]) * 0.08;
+                let c = hex2rgb(baseColor);
+                let factor = animState.shimmer[x][y];
+                c = c.map(v=>Math.max(0,Math.min(255,Math.round(v*factor))));
+                let color = rgb2hex(c);
+                cellColors[x][y] = color;
+            }
+        }
+        // 太阳整体闪烁（blink）
+        if(!animState.sunBlinkT) animState.sunBlinkT = 0;
+        animState.sunBlinkT += 0.07;
+        let sunBlink = 0.92 + 0.08*Math.sin(animState.sunBlinkT); // 0.84~1.0
+        // 在左上角4格宽高的1/4圆内叠加太阳，内圈白黄，外圈橙黄
+        let sunRadius = 4; // 单位：格
+        for(let x=0;x<8;x++){
+            for(let y=0;y<8;y++){
+                if(x<=sunRadius-1 && y<=sunRadius-1 && (x*x + y*y <= sunRadius*sunRadius)){
+                    let dist = Math.sqrt(x*x + y*y)/sunRadius;
+                    let sunColor;
+                    if(dist<0.5){
+                        sunColor = lerpColor('#fffde4', '#ffe066', dist/0.5);
+                    }else{
+                        sunColor = lerpColor('#ffe066', '#ffb300', (dist-0.5)/0.5);
+                    }
+                    // 叠加整体闪烁亮度
+                    let c = hex2rgb(sunColor);
+                    c = c.map(v=>Math.max(0,Math.min(255,Math.round(v*sunBlink))));
+                    cellColors[x][y] = rgb2hex(c);
+                }
+            }
+        }
+        // 绘制所有格子
+        for(let x=0;x<8;x++) for(let y=0;y<8;y++) fillCell(x,y,cellColors[x][y]);
     }else if(main==='Snow'){
         animState = {
             flakes: Array(10).fill(0).map(()=>({x:Math.random()*8, y:Math.random()*8, speed:0.04+Math.random()*0.04})),
@@ -370,31 +425,54 @@ function animateWeather() {
     }
     // 3. 晴天动画
     else if(main==='Clear'){
-        // 渐变背景
+        // 渐变底色+闪烁
         let grad = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
-        grad.addColorStop(0,'#ffb347');
-        grad.addColorStop(1,'#fffbe6');
-        for(let x=0;x<8;x++) for(let y=0;y<8;y++) fillCell(x,y,grad);
-        // 太阳颜色随温度变化
-        let minT = 10, maxT = 35;
-        let t = Math.max(0, Math.min(1, (currentTemp-minT)/(maxT-minT)));
-        let sunColor = lerpColor('#fff7c0', '#ffb347', t);
-        // 太阳本体
-        let cx=4,cy=4;
-        for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++){
-            let x=cx+dx, y=cy+dy;
-            if(x>=0&&x<8&&y>=0&&y<8) fillCell(x,y,sunColor);
+        grad.addColorStop(0,'#ff9800'); // orange
+        grad.addColorStop(1,'#c0392b'); // deep red
+        // 先生成8x8格子的渐变色和闪烁
+        let cellColors = Array(8).fill(0).map(()=>Array(8).fill('#000'));
+        for(let x=0;x<8;x++){
+            for(let y=0;y<8;y++){
+                let t = (x+y/8)/7;
+                let baseColor = lerpColor('#ff9800','#c0392b',t);
+                if(!animState.shimmerTarget) animState.shimmerTarget = Array(8).fill(0).map(()=>Array(8).fill(1));
+                if(!animState.shimmer) animState.shimmer = Array(8).fill(0).map(()=>Array(8).fill(1));
+                if(Math.random()<0.04){
+                    animState.shimmerTarget[x][y] = 0.88 + Math.random()*0.24;
+                }
+                animState.shimmer[x][y] += (animState.shimmerTarget[x][y] - animState.shimmer[x][y]) * 0.08;
+                let c = hex2rgb(baseColor);
+                let factor = animState.shimmer[x][y];
+                c = c.map(v=>Math.max(0,Math.min(255,Math.round(v*factor))));
+                let color = rgb2hex(c);
+                cellColors[x][y] = color;
+            }
         }
-        // 太阳光芒旋转
-        let r=2.2;
-        let angle=animState.angle;
-        for(let i=0;i<8;i++){
-            let a=angle+i*Math.PI/4;
-            let x=Math.round(cx+r*Math.cos(a));
-            let y=Math.round(cy+r*Math.sin(a));
-            if(x>=0&&x<8&&y>=0&&y<8) fillCell(x,y,'#fffbe6');
+        // 太阳整体闪烁（blink）
+        if(!animState.sunBlinkT) animState.sunBlinkT = 0;
+        animState.sunBlinkT += 0.07;
+        let sunBlink = 0.92 + 0.08*Math.sin(animState.sunBlinkT); // 0.84~1.0
+        // 在左上角4格宽高的1/4圆内叠加太阳，内圈白黄，外圈橙黄
+        let sunRadius = 4; // 单位：格
+        for(let x=0;x<8;x++){
+            for(let y=0;y<8;y++){
+                if(x<=sunRadius-1 && y<=sunRadius-1 && (x*x + y*y <= sunRadius*sunRadius)){
+                    let dist = Math.sqrt(x*x + y*y)/sunRadius;
+                    let sunColor;
+                    if(dist<0.5){
+                        sunColor = lerpColor('#fffde4', '#ffe066', dist/0.5);
+                    }else{
+                        sunColor = lerpColor('#ffe066', '#ffb300', (dist-0.5)/0.5);
+                    }
+                    // 叠加整体闪烁亮度
+                    let c = hex2rgb(sunColor);
+                    c = c.map(v=>Math.max(0,Math.min(255,Math.round(v*sunBlink))));
+                    cellColors[x][y] = rgb2hex(c);
+                }
+            }
         }
-        animState.angle += 0.04;
+        // 绘制所有格子
+        for(let x=0;x<8;x++) for(let y=0;y<8;y++) fillCell(x,y,cellColors[x][y]);
     }
     // 4. 雪天动画
     else if(main==='Snow'){
@@ -470,6 +548,16 @@ function drawBlockCloud(cx, cy){
         }
     }
 }
+// 多段颜色插值
+function lerpMultiColor(stops, t){
+    for(let i=1;i<stops.length;i++){
+        if(t<=stops[i].pos){
+            let t2 = (t-stops[i-1].pos)/(stops[i].pos-stops[i-1].pos);
+            return lerpColor(stops[i-1].color, stops[i].color, t2);
+        }
+    }
+    return stops[stops.length-1].color;
+}
 // 颜色插值
 function lerpColor(c1, c2, t){
     function hex2rgb(hex){
@@ -486,6 +574,14 @@ function lerpColor(c1, c2, t){
         Math.round(a[2]+(b[2]-a[2])*t)
     ];
     return rgb2hex(c);
+}
+// 工具函数：hex2rgb/rgb2hex
+function hex2rgb(hex){
+    hex=hex.replace('#','');
+    return [parseInt(hex.substr(0,2),16),parseInt(hex.substr(2,2),16),parseInt(hex.substr(4,2),16)];
+}
+function rgb2hex(rgb){
+    return '#'+rgb.map(x=>x.toString(16).padStart(2,'0')).join('');
 }
     </script>
 </body>
